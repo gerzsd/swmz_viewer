@@ -1,0 +1,1038 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SW Maps Viewer</title>
+<style>
+  :root {
+    --bg:#f5f6f8; --panel:#ffffff; --ink:#1c2430; --muted:#6a7482; --line:#dde1e7;
+    --accent:#1565c0; --accent-ink:#ffffff; --hover:#eef2f8; --danger:#b3261e;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#14181d; --panel:#1c2229; --ink:#e6e9ee; --muted:#98a2b0; --line:#2e3640; --accent:#6aa9f5; --accent-ink:#0b1420; --hover:#26303a; --danger:#f2b8b5; }
+  }
+  * { box-sizing:border-box; }
+  [hidden] { display:none !important; }
+  html,body { height:100%; margin:0; }
+  body { font:14px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; background:var(--bg); color:var(--ink); }
+  #app { display:flex; height:100%; }
+  #sidebar { width:360px; min-width:300px; max-width:42vw; background:var(--panel); border-right:1px solid var(--line); overflow-y:auto; display:flex; flex-direction:column; }
+  #mapwrap { flex:1; position:relative; min-width:0; }
+  #map { position:absolute; inset:0; background:#dfe4ea; }
+  .sb-head { padding:14px 14px 10px; border-bottom:1px solid var(--line); position:sticky; top:0; background:var(--panel); z-index:5; }
+  h1 { font-size:16px; margin:0 0 8px; letter-spacing:.2px; }
+  .row { display:flex; gap:8px; align-items:center; }
+  .row > * { min-width:0; }
+  button, select, input[type=search], input[type=text] { font:inherit; color:inherit; }
+  button { background:var(--panel); border:1px solid var(--line); border-radius:6px; padding:6px 10px; cursor:pointer; }
+  button:hover { background:var(--hover); }
+  button.primary { background:var(--accent); color:var(--accent-ink); border-color:var(--accent); font-weight:600; }
+  button.primary:hover { filter:brightness(1.08); }
+  select, input[type=search], input[type=text] { width:100%; padding:6px 8px; border:1px solid var(--line); border-radius:6px; background:var(--panel); }
+  .status { color:var(--muted); font-size:12px; margin-top:8px; }
+  .status .warn { color:var(--danger); }
+  section.blk { padding:10px 14px; border-bottom:1px solid var(--line); }
+  section.blk > label.cap { display:block; font-size:11px; text-transform:uppercase; letter-spacing:.6px; color:var(--muted); margin-bottom:4px; }
+  .two { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .check { display:flex; gap:6px; align-items:center; margin-top:8px; font-size:13px; }
+  #legend { display:flex; flex-wrap:wrap; gap:4px 12px; margin-top:8px; font-size:12px; }
+  #legend span.item { display:inline-flex; align-items:center; gap:5px; }
+  .dot { width:11px; height:11px; border-radius:50%; border:1.5px solid #fff; box-shadow:0 0 0 1px rgba(0,0,0,.35); display:inline-block; flex:none; }
+  .actions { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
+  .actions button { padding:4px 9px; font-size:12px; }
+  #count { font-weight:600; }
+  details.grp { border-bottom:1px solid var(--line); }
+  details.grp > summary { padding:8px 14px; cursor:pointer; font-weight:600; font-size:13px; list-style:none; display:flex; align-items:center; gap:8px; }
+  details.grp > summary::-webkit-details-marker { display:none; }
+  details.grp > summary::before { content:"▸"; color:var(--muted); font-size:11px; width:10px; }
+  details.grp[open] > summary::before { content:"▾"; }
+  details.grp > summary .badge { margin-left:auto; background:var(--accent); color:var(--accent-ink); border-radius:10px; padding:0 7px; font-size:11px; font-weight:600; }
+  details.grp > .body { padding:0 14px 10px 32px; }
+  label.opt { display:flex; align-items:center; gap:7px; padding:2px 0; cursor:pointer; font-size:13px; }
+  label.opt .n { margin-left:auto; color:var(--muted); font-variant-numeric:tabular-nums; font-size:12px; }
+  label.opt.zero { opacity:.45; }
+  .quick { font-size:12px; color:var(--muted); padding:0 0 2px; } .quick a { color:var(--accent); text-decoration:none; }
+  label.opt.empty .t { font-style:italic; color:var(--muted); }
+  .textf { display:grid; gap:6px; padding-top:4px; }
+  .textf label { font-size:12px; color:var(--muted); display:block; }
+  #list { padding:0 6px 14px; }
+  .li { display:flex; gap:8px; align-items:center; padding:5px 8px; border-radius:6px; cursor:pointer; font-size:13px; }
+  .li:hover { background:var(--hover); }
+  .li.sel { background:var(--hover); outline:1px solid var(--accent); }
+  .li .sub { color:var(--muted); font-size:12px; margin-left:auto; white-space:nowrap; }
+  #detail { position:absolute; right:12px; bottom:12px; width:350px; max-width:calc(100% - 24px); max-height:calc(100% - 24px); overflow:auto; background:var(--panel); border:1px solid var(--line); border-radius:10px; box-shadow:0 6px 24px rgba(0,0,0,.25); z-index:900; }
+  #detail header { display:flex; align-items:flex-start; gap:8px; padding:12px 14px 8px; position:sticky; top:0; background:var(--panel); border-bottom:1px solid var(--line); }
+  #detail header h2 { margin:0; font-size:16px; flex:1; }
+  #detail header small { color:var(--muted); display:block; font-weight:400; font-size:12px; }
+  #detail .x { padding:0 8px; font-size:18px; line-height:1.3; }
+  #detail .body { padding:8px 14px 14px; }
+  dl.kv { margin:0; display:grid; grid-template-columns:110px 1fr; gap:4px 10px; font-size:13px; }
+  dl.kv dt { color:var(--muted); overflow-wrap:anywhere; }
+  dl.kv dd { margin:0; overflow-wrap:anywhere; }
+  .chip { display:inline-block; background:var(--hover); border:1px solid var(--line); border-radius:10px; padding:0 8px; margin:0 4px 4px 0; font-size:12px; }
+  .meta { margin-top:10px; padding-top:8px; border-top:1px dashed var(--line); color:var(--muted); font-size:12px; display:grid; gap:2px; }
+  .photos { display:grid; grid-template-columns:repeat(3,1fr); gap:6px; margin-top:10px; }
+  .photos figure { margin:0; cursor:zoom-in; }
+  .photos .ph { aspect-ratio:1; background:var(--bg); border:1px solid var(--line); border-radius:6px; overflow:hidden; display:flex; align-items:center; justify-content:center; text-align:center; font-size:11px; color:var(--danger); padding:4px; }
+  .photos img { width:100%; height:100%; object-fit:cover; display:block; }
+  .photos figcaption { font-size:11px; color:var(--muted); text-align:center; margin-top:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  #lightbox { position:fixed; inset:0; background:rgba(0,0,0,.88); z-index:3000; display:flex; align-items:center; justify-content:center; flex-direction:column; }
+  #lightbox[hidden], #detail[hidden], #panel[hidden], #empty[hidden], #toast[hidden] { display:none; }
+  #lightbox img { max-width:92vw; max-height:84vh; object-fit:contain; }
+  #lightbox .cap { color:#ddd; margin-top:10px; font-size:13px; }
+  #lightbox button { position:absolute; background:rgba(255,255,255,.12); color:#fff; border:0; font-size:26px; padding:10px 16px; }
+  #lightbox .prev { left:12px; top:50%; } #lightbox .next { right:12px; top:50%; } #lightbox .close { right:12px; top:12px; }
+  #empty { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:22px 26px; z-index:800; max-width:420px; text-align:center; box-shadow:0 6px 24px rgba(0,0,0,.25); }
+  #empty h2 { margin:0 0 6px; font-size:17px; } #empty p { margin:6px 0 14px; color:var(--muted); }
+  #empty pre { text-align:left; background:var(--bg); border:1px solid var(--line); border-radius:6px; padding:8px 10px; font-size:12px; margin:0 0 12px; }
+  #toast { position:absolute; left:50%; top:12px; transform:translateX(-50%); background:#1c2430; color:#fff; padding:8px 14px; border-radius:8px; z-index:1000; font-size:13px; max-width:80%; box-shadow:0 4px 16px rgba(0,0,0,.3); }
+  .lbl.leaflet-tooltip { background:rgba(255,255,255,.88); border:0; box-shadow:0 0 0 1px rgba(0,0,0,.25); color:#111; font-size:11px; padding:0 4px; border-radius:3px; }
+  .lbl.leaflet-tooltip::before { display:none; }
+  .no-labels .lbl.leaflet-tooltip { display:none; }
+  #editbar { margin-top:8px; padding:8px 10px; border:1px solid #d9a400; background:rgba(255,193,7,.14); border-radius:8px; font-size:13px; }
+  #editbar .es.dirty { color:var(--danger); font-weight:600; }
+  button:disabled { opacity:.5; cursor:default; }
+  #detail header button.sm { padding:2px 9px; font-size:12px; }
+  button.danger { color:var(--danger); border-color:var(--danger); }
+  .form label.fl { display:block; font-size:11px; text-transform:uppercase; letter-spacing:.5px; color:var(--muted); margin:10px 0 3px; }
+  .form textarea { width:100%; padding:6px 8px; border:1px solid var(--line); border-radius:6px; background:var(--panel); font:inherit; color:inherit; resize:vertical; }
+  .form .cl { border:1px solid var(--line); border-radius:6px; padding:4px 8px; }
+  .formbtns { display:flex; gap:8px; justify-content:flex-end; margin-top:14px; position:sticky; bottom:0; background:var(--panel); padding:8px 0 0; }
+  .addattr { margin-top:14px; padding-top:6px; border-top:1px dashed var(--line); } .addattr select { margin-bottom:6px; }
+  @media (max-width: 760px) {
+    #app { flex-direction:column-reverse; }
+    #sidebar { width:100%; max-width:none; height:48%; border-right:0; border-top:1px solid var(--line); }
+    #mapwrap { height:52%; flex:none; }
+    #detail { width:auto; left:12px; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <aside id="sidebar">
+    <div class="sb-head">
+      <h1>SW Maps Viewer</h1>
+      <div class="row">
+        <button class="primary" id="btnOpen">Open input folder…</button>
+        <select id="projSel" hidden title="Project"></select>
+      </div>
+      <div style="margin-top:6px"><button id="btnSwmz" title="Open a zipped SW Maps project (.swmz) containing Projects/ and Photos/">Open .swmz file…</button></div>
+      <div class="status" id="status">Choose a folder containing <b>Projects</b> and <b>Photos</b>.</div>
+      <div id="editbar" hidden>
+        <div><b>Editing a copy</b> · <span id="editName"></span></div>
+        <div class="row" style="margin-top:6px"><span id="editState" class="es"></span><span style="flex:1"></span><button id="btnUndo" disabled>Undo</button><button id="btnSave" class="primary" disabled>Save</button></div>
+      </div>
+      <div style="margin-top:8px"><button id="btnMakeCopy" hidden>Create editable copy…</button></div>
+    </div>
+    <div id="panel" hidden>
+      <section class="blk">
+        <label class="cap" for="layerSel" id="layerCap" hidden>Layer</label>
+        <select id="layerSel" hidden></select>
+        <label class="cap" for="search">Search</label>
+        <input type="search" id="search" placeholder="Any text: id, serial no., description…" autocomplete="off">
+        <div class="actions">
+          <button id="btnReset">Reset filters</button>
+          <button id="btnFit">Fit to results</button>
+          <button id="btnGeo">GeoJSON</button>
+          <button id="btnCsv">CSV</button>
+        </div>
+        <div class="status"><span id="count"></span></div>
+      </section>
+      <section class="blk">
+        <div class="two">
+          <div><label class="cap" for="colorSel">Colour by</label><select id="colorSel"></select></div>
+          <div><label class="cap" for="labelSel">Label</label><select id="labelSel"></select></div>
+        </div>
+        <label class="check"><input type="checkbox" id="chkLabels" checked> Show labels <span style="color:var(--muted)" id="lblHint"></span></label>
+        <div id="legend"></div>
+      </section>
+      <div id="filters"></div>
+      <details class="grp" open id="listGrp"><summary>Results</summary><div id="list"></div></details>
+    </div>
+  </aside>
+  <main id="mapwrap">
+    <div id="map"></div>
+    <div id="empty">
+      <h2>Open your SW Maps input folder</h2>
+      <p>The folder must contain:</p>
+      <pre>input/
+  Projects/   ← *.swm2
+  Photos/     ← images referenced by the project</pre>
+      <button class="primary" id="btnOpen2">Open input folder…</button>
+      <p style="margin-bottom:0;font-size:12px">Everything is read in your browser; nothing is uploaded.</p>
+    </div>
+    <div id="detail" hidden></div>
+    <div id="toast" hidden></div>
+  </main>
+</div>
+<div id="lightbox" hidden>
+  <button class="close" title="Close (Esc)">×</button>
+  <button class="prev" title="Previous (←)">‹</button>
+  <img alt="">
+  <button class="next" title="Next (→)">›</button>
+  <div class="cap"></div>
+</div>
+<input type="file" id="dirinput" webkitdirectory multiple hidden>
+<input type="file" id="swmzinput" accept=".swmz,.zip" hidden>
+
+<script>
+/* ------------------------------------------------------------------ *
+ *  Configuration
+ * ------------------------------------------------------------------ */
+const CONFIG = {
+  osmUrl: 'https://a.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png',
+  localTileUrl: 'Tiles/{z}/{x}/{y}.png',   // relative to this HTML file
+  localMaxNativeZoom: null,                 // e.g. 17 if your local tiles stop at zoom 17
+  labelFields: ['fid', 'azonosito', 'gyari_szam'],
+  titleFields: ['fid', 'azonosito', 'gyari_szam'],
+  photoOrder: ['foto', 'foto adat', 'foto hiba'],   // always shown in this order
+  defaultColorField: 'tipus_hely',
+  fixedColors: { tipus_hely: { feltalaj: '#d32f2f', altalaj: '#1565c0' } },
+  labelMinZoom: 15,
+  markerRadius: 8
+};
+// Libraries: CDN first, then the ./lib folder next to this file (for offline use).
+const LIBS = {
+  leafletCss: ['https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css', 'lib/leaflet.css'],
+  leafletJs:  ['https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js',  'lib/leaflet.js'],
+  sqlJs:      ['https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.8.0/sql-wasm.js',   'lib/sql-wasm.js']
+};
+const PALETTE = ['#e69f00', '#56b4e9', '#009e73', '#cc79a7', '#d55e00', '#0072b2', '#f0e442', '#7a7a7a'];
+const NO_VALUE_COLOR = '#9e9e9e';
+const EMPTY = '\u0000empty';
+const BLANK_TILE = 'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==';
+
+(async function () {
+  const $ = s => document.querySelector(s);
+  const el = (tag, props, ...kids) => {
+    const e = document.createElement(tag);
+    for (const [k, v] of Object.entries(props || {})) {
+      if (k === 'class') e.className = v;
+      else if (k === 'text') e.textContent = v;
+      else if (k.startsWith('on')) e.addEventListener(k.slice(2), v);
+      else if (v === true) e.setAttribute(k, '');
+      else if (v !== false && v != null) e.setAttribute(k, v);
+    }
+    for (const kid of kids.flat()) if (kid != null && kid !== false) e.append(kid);
+    return e;
+  };
+  const pad = n => String(n).padStart(2, '0');
+  const fmtTime = ms => {
+    if (!ms) return '';
+    const d = new Date(ms);               // browser's local time zone
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+  };
+  const photoRank = n => { const i = CONFIG.photoOrder.indexOf((n || '').toLowerCase()); return i < 0 ? 100 : i; };
+  const splitList = v => (v || '').split('||').map(s => s.trim()).filter(Boolean);
+  const argbToHex = n => '#' + ((n >>> 0) & 0xFFFFFF).toString(16).padStart(6, '0');
+  let toastTimer;
+  const toast = (msg, ms = 5000) => {
+    const t = $('#toast'); t.textContent = msg; t.hidden = false;
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.hidden = true; }, ms);
+  };
+
+  /* ---------------- load libraries ---------------- */
+  const loadScript = src => new Promise((res, rej) => {
+    const s = document.createElement('script'); s.src = src;
+    s.onload = () => res(src); s.onerror = () => rej(new Error(src)); document.head.append(s);
+  });
+  const loadCss = href => new Promise((res, rej) => {
+    const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = href;
+    l.onload = () => res(href); l.onerror = () => rej(new Error(href)); document.head.append(l);
+  });
+  const firstOf = async (urls, loader) => {
+    for (const u of urls) { try { return await loader(u); } catch (e) { /* try next */ } }
+    throw new Error(urls.join('  or  '));
+  };
+  let sqlBase;
+  try {
+    const r = await Promise.all([firstOf(LIBS.leafletCss, loadCss), firstOf(LIBS.leafletJs, loadScript), firstOf(LIBS.sqlJs, loadScript)]);
+    sqlBase = r[2].slice(0, r[2].lastIndexOf('/') + 1);
+  } catch (e) {
+    $('#empty h2').textContent = 'Could not load libraries';
+    $('#empty p').textContent = 'No internet and no local copy found. Put leaflet.js, leaflet.css, sql-wasm.js and sql-wasm.wasm into a "lib" folder next to this file.';
+    $('#empty pre').textContent = 'Missing: ' + e.message;
+    $('#btnOpen2').hidden = true; $('#btnOpen').disabled = true;
+    return;
+  }
+  const SQL = await initSqlJs({ locateFile: f => sqlBase + f });
+
+  /* ---------------- map ---------------- */
+  const map = L.map('map').setView([47.1, 19.5], 7);
+  const osm = L.tileLayer(CONFIG.osmUrl, { maxZoom: 19, attribution: '&copy; OpenStreetMap contributors, Tiles style by Humanitarian OpenStreetMap Team hosted by OpenStreetMap France' });
+  const localOpts = { maxZoom: 19, errorTileUrl: BLANK_TILE, attribution: 'Local tiles' };
+  if (CONFIG.localMaxNativeZoom) localOpts.maxNativeZoom = CONFIG.localMaxNativeZoom;
+  const local = L.tileLayer(CONFIG.localTileUrl, localOpts);
+  L.control.layers({ 'OpenStreetMap HOT (online)': osm, 'Local tiles (Tiles/)': local }, {}, { position: 'topright' }).addTo(map);
+  const useLocal = why => {
+    if (map.hasLayer(local)) return;
+    map.removeLayer(osm); local.addTo(map);
+    toast(why + ' – switched to local tiles (Tiles/{z}/{x}/{y}.png).', 8000);
+  };
+  if (navigator.onLine === false) local.addTo(map); else osm.addTo(map);
+  let osmOk = 0, osmFail = 0;
+  osm.on('tileload', () => { osmOk++; });
+  osm.on('tileerror', () => { osmFail++; if (osmOk === 0 && osmFail >= 3) useLocal('Online tiles are unreachable'); });
+  const group = L.layerGroup().addTo(map);
+  const updateLabelVisibility = () => {
+    const hide = !S.showLabels || map.getZoom() < CONFIG.labelMinZoom;
+    map.getContainer().classList.toggle('no-labels', hide);
+  };
+  map.on('zoomend', updateLabelVisibility);
+
+  /* ---------------- state ---------------- */
+  const S = {
+    projects: [], photos: new Map(), photoUrls: new Map(),
+    layers: [], layer: null, fields: [], filterFields: [], textFields: [], photoFields: [],
+    features: [], byId: new Map(),
+    search: [], sel: {}, text: {},
+    colorField: null, colorMap: new Map(), labelField: null, showLabels: true,
+    visible: [], selectedId: null, ui: {}, projectName: ''
+  };
+
+  /* ---------------- zip (.swmz) ---------------- */
+  const IMG_RE = /\.(jpe?g|png|gif|webp|bmp|heic)$/i;
+  const MIME = { jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', gif: 'image/gif', webp: 'image/webp', bmp: 'image/bmp', heic: 'image/heic' };
+  async function openZip(file) {                 // reads only the central directory; entries are inflated on demand
+    const u16 = (d, o) => d.getUint16(o, true), u32 = (d, o) => d.getUint32(o, true), u64 = (d, o) => Number(d.getBigUint64(o, true));
+    const tailLen = Math.min(file.size, 65535 + 22 + 20), t = new DataView(await file.slice(file.size - tailLen).arrayBuffer());
+    let e = -1; for (let i = tailLen - 22; i >= 0; i--) if (u32(t, i) === 0x06054b50) { e = i; break; }
+    if (e < 0) throw new Error('not a zip archive');
+    let count = u16(t, e + 10), cdSize = u32(t, e + 12), cdOff = u32(t, e + 16);
+    if (count === 0xFFFF || cdSize === 0xFFFFFFFF || cdOff === 0xFFFFFFFF) {               // zip64
+      const l = e - 20; if (l < 0 || u32(t, l) !== 0x07064b50) throw new Error('zip64 end record not found');
+      const zo = u64(t, l + 8), zb = new DataView(await file.slice(zo, zo + 56).arrayBuffer());
+      if (u32(zb, 0) !== 0x06064b50) throw new Error('bad zip64 end record');
+      count = u64(zb, 32); cdSize = u64(zb, 40); cdOff = u64(zb, 48);
+    }
+    const cd = new DataView(await file.slice(cdOff, cdOff + cdSize).arrayBuffer()), cdb = new Uint8Array(cd.buffer), dec = new TextDecoder('utf-8');
+    const entries = []; let p = 0;
+    for (let k = 0; k < count && p + 46 <= cdb.length; k++) {
+      if (u32(cd, p) !== 0x02014b50) break;
+      const flags = u16(cd, p + 8), method = u16(cd, p + 10); let csize = u32(cd, p + 20), usize = u32(cd, p + 24);
+      const nl = u16(cd, p + 28), xl = u16(cd, p + 30), cl = u16(cd, p + 32); let off = u32(cd, p + 42);
+      const name = dec.decode(cdb.subarray(p + 46, p + 46 + nl));
+      for (let xp = p + 46 + nl, xend = xp + xl; xp + 4 <= xend; xp += 4 + u16(cd, xp + 2)) {
+        if (u16(cd, xp) !== 1) continue;
+        let q = xp + 4;
+        if (usize === 0xFFFFFFFF) { usize = u64(cd, q); q += 8; }
+        if (csize === 0xFFFFFFFF) { csize = u64(cd, q); q += 8; }
+        if (off === 0xFFFFFFFF) { off = u64(cd, q); }
+      }
+      p += 46 + nl + xl + cl;
+      if (!name.endsWith('/')) entries.push({ name, flags, method, csize, usize, off });
+    }
+    const read = async en => {                   // -> Blob
+      if (en.flags & 1) throw new Error('encrypted zip entries are not supported');
+      const h = new DataView(await file.slice(en.off, en.off + 30).arrayBuffer());
+      if (u32(h, 0) !== 0x04034b50) throw new Error('bad local header for ' + en.name);
+      const start = en.off + 30 + u16(h, 26) + u16(h, 28), blob = file.slice(start, start + en.csize);
+      if (en.method === 0) return blob;
+      if (en.method === 8) return await new Response(blob.stream().pipeThrough(new DecompressionStream('deflate-raw'))).blob();
+      throw new Error('unsupported zip compression method ' + en.method);
+    };
+    return { entries, read, name: file.name };
+  }
+  function zipToProjects(zip) {                  // -> project entries, each carrying the zip's own photo map
+    const clean = zip.entries.filter(en => !en.name.startsWith('__MACOSX/') && !en.name.split('/').pop().startsWith('._'));
+    const segs = en => en.name.split('/').slice(0, -1).map(x => x.toLowerCase());
+    const base = en => en.name.split('/').pop();
+    const dbs = clean.filter(en => /\.swm2$/i.test(en.name)), dbsIn = dbs.filter(en => segs(en).includes('projects'));
+    const imgs = clean.filter(en => IMG_RE.test(en.name)), imgsIn = imgs.filter(en => segs(en).includes('photos'));
+    const photos = new Map();
+    for (const en of (imgsIn.length ? imgsIn : imgs)) {
+      const n = base(en); photos.set(n.toLowerCase(), { name: n, getFile: async () => new File([await zip.read(en)], n, { type: MIME[n.split('.').pop().toLowerCase()] || '' }) });
+    }
+    return (dbsIn.length ? dbsIn : dbs).map(en => ({
+      name: base(en), kind: 'swmz', zipName: zip.name, photos, nPhotos: photos.size,
+      read: async () => new Uint8Array(await (await zip.read(en)).arrayBuffer())
+    }));
+  }
+  async function swmzFromFile(file) {
+    try { return zipToProjects(await openZip(file)); }
+    catch (e) { console.error(e); toast('Could not read ' + file.name + ': ' + e.message, 9000); return null; }
+  }
+
+  /* ---------------- folder access ---------------- */
+  async function childDir(dir, name) {
+    for await (const [n, h] of dir.entries()) if (h.kind === 'directory' && n.toLowerCase() === name) return h;
+    return null;
+  }
+  async function walkPhotos(dir, out) {
+    for await (const [n, h] of dir.entries()) {
+      if (h.kind === 'directory') await walkPhotos(h, out);
+      else if (/\.(jpe?g|png|gif|webp|bmp|heic)$/i.test(n)) out.set(n.toLowerCase(), { name: n, getFile: () => h.getFile() });
+    }
+  }
+  async function openFromHandle(root) {
+    const projects = [], photos = new Map();
+    const pd = await childDir(root, 'projects');
+    if (pd) for await (const [n, h] of pd.entries())
+      if (h.kind === 'file' && /\.swm2$/i.test(n)) projects.push({ name: n, kind: 'original', read: async () => new Uint8Array(await (await h.getFile()).arrayBuffer()) });
+    for (const dir of [root, pd]) if (dir) for await (const [n, h] of dir.entries())
+      if (h.kind === 'file' && /\.swmz$/i.test(n)) projects.push(...(await swmzFromFile(await h.getFile()) || []));
+    const edd = await childDir(root, 'edited');
+    if (edd) for await (const [n, h] of edd.entries())
+      if (h.kind === 'file' && /\.swm2$/i.test(n)) projects.push({ name: n, kind: 'edited', editable: true, handle: h, dir: edd, read: async () => new Uint8Array(await (await h.getFile()).arrayBuffer()) });
+    const phd = await childDir(root, 'photos');
+    if (phd) await walkPhotos(phd, photos);
+    await startSession(root.name, projects, photos, !!pd, !!phd, root);
+  }
+  async function openFromFileList(files) {
+    const projects = [], photos = new Map(); let hasP = false, hasPh = false;
+    for (const f of files) {
+      const parts = (f.webkitRelativePath || f.name).split('/');
+      const segs = parts.slice(1, -1).map(s => s.toLowerCase()), name = parts[parts.length - 1];
+      if (segs.includes('projects')) hasP = true;
+      if (segs.includes('photos')) hasPh = true;
+      if (segs.includes('projects') && /\.swm2$/i.test(name)) projects.push({ name, kind: 'original', read: async () => new Uint8Array(await f.arrayBuffer()) });
+      else if (segs.includes('edited') && /\.swm2$/i.test(name)) projects.push({ name, kind: 'edited', editable: false, read: async () => new Uint8Array(await f.arrayBuffer()) });
+      else if (segs.includes('photos') && IMG_RE.test(name)) photos.set(name.toLowerCase(), { name, getFile: async () => f });
+      else if (/\.swmz$/i.test(name) && segs.length <= 1) projects.push(...(await swmzFromFile(f) || []));
+    }
+    await startSession(files[0] && files[0].webkitRelativePath.split('/')[0] || 'folder', projects, photos, hasP, hasPh);
+  }
+  async function startSession(rootName, projects, photos, hasProjectsDir, hasPhotosDir, root) {
+    if (!hasProjectsDir && !projects.some(p => p.kind === 'swmz')) { toast('No "Projects" subfolder or .swmz file found in “' + rootName + '”. Pick the parent folder that contains Projects and Photos.', 9000); return; }
+    if (!projects.length) { toast('No .swm2 project found in Projects/ or in a .swmz file.', 9000); return; }
+    projects.sort(projectOrder);
+    for (const u of S.photoUrls.values()) URL.revokeObjectURL(u);
+    S.photoUrls.clear();
+    closeEditSession();
+    S.projects = projects; S.photos = photos; S.noPhotosDir = !hasPhotosDir; S.root = root || null; S.outRoot = null; S.activePhotos = null;
+    rebuildProjectSelect();
+    await loadProject(projects.findIndex(p => p.kind !== 'edited') >= 0 ? projects.findIndex(p => p.kind !== 'edited') : 0);
+  }
+  const KIND_RANK = { original: 0, swmz: 1, edited: 2 };
+  const projectOrder = (a, b) => (KIND_RANK[a.kind] - KIND_RANK[b.kind]) || (a.zipName || '').localeCompare(b.zipName || '') || a.name.localeCompare(b.name);
+  const projLabel = p => p.kind === 'edited' ? 'Edited/' + p.name : p.kind === 'swmz' ? p.zipName + ' › ' + p.name : p.name;
+  function rebuildProjectSelect() {
+    const sel = $('#projSel'); sel.replaceChildren(...S.projects.map((p, i) => el('option', { value: i, text: projLabel(p) })));
+    sel.hidden = S.projects.length < 2;
+  }
+  async function pickFolder() {
+    if (!await confirmDiscard()) return;
+    if (window.showDirectoryPicker) {
+      try { await openFromHandle(await window.showDirectoryPicker({ mode: 'read' })); }
+      catch (e) { if (e.name !== 'AbortError') { console.error(e); toast('Could not open folder: ' + e.message, 9000); } }
+    } else $('#dirinput').click();
+  }
+  $('#btnOpen').onclick = $('#btnOpen2').onclick = pickFolder;
+  $('#dirinput').onchange = async e => { const f = [...e.target.files]; e.target.value = ''; if (f.length && await confirmDiscard()) await openFromFileList(f); };
+  $('#btnSwmz').onclick = () => $('#swmzinput').click();
+  $('#swmzinput').onchange = async e => {
+    const file = e.target.files[0]; e.target.value = ''; if (!file || !await confirmDiscard()) return;
+    const found = await swmzFromFile(file);
+    if (!found) return;
+    if (!found.length) { toast('No .swm2 project found inside ' + file.name, 9000); return; }
+    if (!S.projects.length) { await startSession(file.name, found, new Map(), true, true, null); return; }
+    S.projects = S.projects.filter(p => !(p.kind === 'swmz' && p.zipName === file.name)); S.projects.push(...found); S.projects.sort(projectOrder);
+    rebuildProjectSelect(); closeEditSession(); await loadProject(S.projects.indexOf(found[0]));
+  };
+  $('#projSel').onchange = async e => { if (!await confirmDiscard()) { e.target.value = S.projIndex; return; } closeEditSession(); await loadProject(+e.target.value); };
+
+  /* ---------------- project loading ---------------- */
+  const wrapDb = db => ({
+    all: async (sql, p) => {
+      const r = await db.exec(sql, p); if (!r || !r.length) return [];
+      const cols = r[0].columns; return r[0].values.map(v => Object.fromEntries(cols.map((c, k) => [c, v[k]])));
+    },
+    run: async (sql, p) => { await db.run(sql, p); return await db.getRowsModified(); },
+    export: async () => await db.export(),
+    close: () => { try { db.close(); } catch (e) { /* ignore */ } }
+  });
+  async function readRaw(db) {
+    S.layers = await db.all('SELECT uuid, name, geom_type, color, fill_color, label_field_id FROM feature_layers');
+    S.allFields = await db.all('SELECT uuid, layer_id, field_name, data_type, field_choices, seq FROM attribute_fields');
+    S.rawFeats = await db.all('SELECT uuid, layer_id, name, remarks FROM features');
+    S.rawPts = await db.all('SELECT fid, seq, lat, lon, elv, time, accuracy_h, accuracy_v, fix_quality FROM points');
+    S.rawVals = await db.all('SELECT item_id, field_id, value FROM attribute_values');
+  }
+  function closeEditSession() { if (S.edit) { S.edit.db.close(); S.edit = null; } }
+  const confirmDiscard = async () => !(S.edit && S.edit.dirty) || confirm('The edited copy has unsaved changes. Discard them?');
+  window.addEventListener('beforeunload', e => { if (S.edit && S.edit.dirty) { e.preventDefault(); e.returnValue = ''; } });
+
+  async function loadProject(i) {
+    const proj = S.projects[i];
+    let db;
+    try {
+      db = wrapDb(new SQL.Database(await proj.read()));
+      await readRaw(db);
+    } catch (e) {
+      console.error(e); if (db) db.close(); toast('Could not read ' + proj.name + ': ' + e.message, 9000); return;
+    }
+    closeEditSession();
+    if (proj.editable && proj.handle) S.edit = { proj, db, dirty: false, undo: [], log: [], ops: 0 }; else db.close();
+    S.projIndex = i; $('#projSel').value = i;
+    const psrc = proj.photos || S.photos;
+    if (S.activePhotos !== psrc) { for (const u of S.photoUrls.values()) URL.revokeObjectURL(u); S.photoUrls.clear(); S.activePhotos = psrc; }
+    S.projectName = projLabel(proj);
+    if (!S.layers.length) { toast('The project has no feature layers.', 9000); return; }
+    $('#layerSel').replaceChildren(...S.layers.map((l, k) => el('option', { value: k, text: l.name })));
+    const multi = S.layers.length > 1;
+    $('#layerSel').hidden = $('#layerCap').hidden = !multi;
+    $('#empty').hidden = true; $('#panel').hidden = false;
+    setLayer(0);
+    updateEditBar();
+  }
+  $('#layerSel').onchange = async e => {
+    if (S.edit) { S.edit.undo.length = 0; await readRaw(S.edit.db); }
+    setLayer(+e.target.value); updateEditBar();
+  };
+
+  function setLayer(k) {
+    const layer = S.layers[k]; S.layer = layer;
+    const fields = S.allFields.filter(f => f.layer_id === layer.uuid);
+    S.fields = fields;
+    S.photoFields = fields.filter(f => f.data_type === 'PHOTO').sort((a, b) => photoRank(a.field_name) - photoRank(b.field_name));
+    S.filterFields = fields.filter(f => f.data_type === 'OPTIONS' || f.data_type === 'CHECKLIST');
+    S.textFields = fields.filter(f => f.data_type !== 'PHOTO' && f.data_type !== 'OPTIONS' && f.data_type !== 'CHECKLIST');
+    const fieldById = new Map(fields.map(f => [f.uuid, f]));
+
+    // first point (lowest seq) per feature
+    const firstPt = new Map();
+    for (const p of S.rawPts) { const c = firstPt.get(p.fid); if (!c || p.seq < c.seq) firstPt.set(p.fid, p); }
+    const valsBy = new Map();
+    for (const v of S.rawVals) { let a = valsBy.get(v.item_id); if (!a) valsBy.set(v.item_id, a = []); a.push(v); }
+
+    S.features = []; S.byId = new Map(); let skipped = 0, noGeom = 0;
+    const isPoint = !layer.geom_type || layer.geom_type === 'POINT';
+    for (const r of S.rawFeats) {
+      if (r.layer_id !== layer.uuid) continue;
+      if (!isPoint) { skipped++; continue; }
+      const p = firstPt.get(r.uuid);
+      if (!p || p.lat == null || p.lon == null) { noGeom++; continue; }
+      const f = { id: r.uuid, layerId: r.layer_id, lat: p.lat, lon: p.lon, elv: p.elv, time: p.time, accH: p.accuracy_h, accV: p.accuracy_v, fix: p.fix_quality, vals: {}, photos: [] };
+      for (const fd of fields) f.vals[fd.field_name] = '';
+      for (const v of valsBy.get(r.uuid) || []) {
+        const fd = fieldById.get(v.field_id); if (!fd) continue;
+        if (fd.data_type === 'PHOTO') {
+          for (const name of splitList(v.value)) f.photos.push({ field: fd.field_name, file: name.split(/[\\/]/).pop() });
+        } else f.vals[fd.field_name] = v.value == null ? '' : String(v.value);
+      }
+      f.photos.sort((a, b) => photoRank(a.field) - photoRank(b.field));
+      f._hay = fields.filter(fd => fd.data_type !== 'PHOTO').map(fd => f.vals[fd.field_name]).join(' \n ').toLowerCase();
+      S.features.push(f); S.byId.set(f.id, f);
+    }
+    // photo reference check
+    let refs = 0, missing = 0;
+    for (const f of S.features) for (const ph of f.photos) { refs++; if (!S.activePhotos.has(ph.file.toLowerCase())) { missing++; ph.missing = true; } }
+    $('#status').replaceChildren(
+      el('b', { text: S.projectName }), ` · ${S.features.length} features`,
+      skipped ? ` · ${skipped} non-point features skipped` : '', noGeom ? ` · ${noGeom} without position` : '',
+      el('br'), `${refs} photo refs, `, missing ? el('span', { class: 'warn', text: `${missing} missing` }) : 'all found',
+      S.noPhotosDir && !S.projects[S.projIndex].photos ? el('span', { class: 'warn', text: ' (no Photos folder)' }) : ''
+    );
+    // reset interactive state
+    S.search = []; S.sel = {}; S.text = {}; S.selectedId = null; $('#detail').hidden = true; $('#search').value = '';
+    buildMarkers(); buildControls(); update(true);
+  }
+
+  /* ---------------- markers & styling ---------------- */
+  const titleOf = f => { for (const n of CONFIG.titleFields) if (f.vals[n]) return f.vals[n]; return '(no id)'; };
+  const labelOf = f => S.labelField ? (f.vals[S.labelField] || '') : '';
+  function colorOf(f) {
+    if (!S.colorField) return argbToHex(S.layer.color);
+    const v = f.vals[S.colorField];
+    return v ? (S.colorMap.get(v) || NO_VALUE_COLOR) : NO_VALUE_COLOR;
+  }
+  function buildColorMap() {
+    S.colorMap = new Map();
+    if (!S.colorField) return;
+    const fd = S.fields.find(x => x.field_name === S.colorField);
+    const fixed = CONFIG.fixedColors[S.colorField] || {};
+    const order = splitList(fd && fd.field_choices);
+    for (const f of S.features) { const v = f.vals[S.colorField]; if (v && !order.includes(v)) order.push(v); }
+    let k = 0;
+    for (const v of order) S.colorMap.set(v, fixed[v.toLowerCase()] || fixed[v] || PALETTE[k++ % PALETTE.length]);
+  }
+  function styleOf(f) {
+    const sel = f.id === S.selectedId;
+    return { radius: sel ? CONFIG.markerRadius + 3 : CONFIG.markerRadius, color: sel ? '#000' : '#fff', weight: sel ? 3 : 1.5, fillColor: colorOf(f), fillOpacity: 0.92 };
+  }
+  function bindLabel(f) {
+    f.marker.unbindTooltip();
+    const t = labelOf(f);
+    if (t) f.marker.bindTooltip(t, { permanent: true, direction: 'right', offset: [9, 0], className: 'lbl' });
+  }
+  function buildMarkers() {
+    group.clearLayers();
+    S.colorField = S.fields.some(f => f.field_name === CONFIG.defaultColorField) ? CONFIG.defaultColorField : null;
+    S.labelField = CONFIG.labelFields.find(n => S.fields.some(f => f.field_name === n)) || null;
+    buildColorMap();
+    for (const f of S.features) {
+      f.marker = L.circleMarker([f.lat, f.lon], styleOf(f));
+      f.marker.on('click', () => select(f.id, false));
+      bindLabel(f);
+    }
+  }
+  const restyle = () => { for (const f of S.features) f.marker.setStyle(styleOf(f)); };
+
+  /* ---------------- sidebar controls ---------------- */
+  function buildControls() {
+    // colour / label selects
+    const optFields = S.fields.filter(f => f.data_type === 'OPTIONS');
+    $('#colorSel').replaceChildren(el('option', { value: '', text: 'Layer colour' }), ...optFields.map(f => el('option', { value: f.field_name, text: f.field_name })));
+    $('#colorSel').value = S.colorField || '';
+    const lblFields = CONFIG.labelFields.filter(n => S.fields.some(f => f.field_name === n));
+    $('#labelSel').replaceChildren(el('option', { value: '', text: '(none)' }), ...lblFields.map(n => el('option', { value: n, text: n })));
+    $('#labelSel').value = S.labelField || '';
+    $('#chkLabels').checked = S.showLabels;
+    $('#lblHint').textContent = `(zoom ≥ ${CONFIG.labelMinZoom})`;
+
+    // option / checklist filter groups
+    const host = $('#filters'); host.replaceChildren(); S.ui = { groups: new Map(), text: new Map() };
+    for (const fd of S.filterFields) {
+      const choices = splitList(fd.field_choices);
+      const extra = new Set(); for (const f of S.features) for (const v of (fd.data_type === 'CHECKLIST' ? splitList(f.vals[fd.field_name]) : [f.vals[fd.field_name]])) if (v && !choices.includes(v)) extra.add(v);
+      const all = [...choices, ...extra, EMPTY];
+      const shown = all;
+      S.sel[fd.field_name] = new Set(shown);
+      const badge = el('span', { class: 'badge', hidden: true });
+      const body = el('div', { class: 'body' });
+      const rows = new Map();
+      const setAll = on => { const s = S.sel[fd.field_name]; s.clear(); for (const [v, r] of rows) { r.cb.checked = on; if (on) s.add(v); } update(); };
+      body.append(el('div', { class: 'quick' }, el('a', { href: '#', text: 'all', onclick: e => { e.preventDefault(); setAll(true); } }), ' · ', el('a', { href: '#', text: 'none', onclick: e => { e.preventDefault(); setAll(false); } })));
+      for (const v of shown) {
+        const cb = el('input', { type: 'checkbox', checked: true });
+        const n = el('span', { class: 'n', text: '0' });
+        const row = el('label', { class: 'opt' + (v === EMPTY ? ' empty' : '') }, cb, el('span', { class: 't', text: v === EMPTY ? '(empty)' : v }), n);
+        cb.onchange = () => { const s = S.sel[fd.field_name]; cb.checked ? s.add(v) : s.delete(v); update(); };
+        body.append(row); rows.set(v, { row, cb, n });
+      }
+      host.append(el('details', { class: 'grp', open: true }, el('summary', {}, fd.field_name, badge), body));
+      S.ui.groups.set(fd.field_name, { rows, badge, all: shown });
+    }
+    // free-text filters
+    const tf = S.textFields;
+    if (tf.length) {
+      const wrap = el('div', { class: 'body textf' });
+      for (const fd of tf) {
+        S.text[fd.field_name] = '';
+        const inp = el('input', { type: 'text', placeholder: 'contains…', autocomplete: 'off' });
+        inp.oninput = () => { S.text[fd.field_name] = inp.value.trim().toLowerCase(); update(); };
+        wrap.append(el('div', {}, el('label', { text: fd.field_name }), inp)); S.ui.text.set(fd.field_name, inp);
+      }
+      host.append(el('details', { class: 'grp' }, el('summary', {}, 'Text fields'), wrap));
+    }
+  }
+  $('#search').oninput = e => { S.search = e.target.value.toLowerCase().split(/\s+/).filter(Boolean); update(); };
+  $('#colorSel').onchange = e => { S.colorField = e.target.value || null; buildColorMap(); restyle(); renderLegend(); renderList(); };
+  $('#labelSel').onchange = e => { S.labelField = e.target.value || null; for (const f of S.features) bindLabel(f); updateLabelVisibility(); };
+  $('#chkLabels').onchange = e => { S.showLabels = e.target.checked; updateLabelVisibility(); };
+  $('#btnFit').onclick = () => fit();
+  $('#btnReset').onclick = () => {
+    S.search = []; $('#search').value = '';
+    for (const [name, g] of S.ui.groups) { S.sel[name] = new Set(g.all); for (const r of g.rows.values()) r.cb.checked = true; }
+    for (const [name, inp] of S.ui.text) { inp.value = ''; S.text[name] = ''; }
+    update();
+  };
+
+  /* ---------------- filtering ---------------- */
+  function featureValues(f, fd) {
+    const v = f.vals[fd.field_name] || '';
+    if (fd.data_type === 'CHECKLIST') { const a = splitList(v); return a.length ? a : [EMPTY]; }
+    return [v === '' ? EMPTY : v];
+  }
+  function matches(f, skip) {
+    for (const t of S.search) if (!f._hay.includes(t)) return false;
+    for (const fd of S.filterFields) {
+      if (fd === skip) continue;
+      const sel = S.sel[fd.field_name];
+      if (sel && !featureValues(f, fd).some(x => sel.has(x))) return false;
+    }
+    for (const fd of S.textFields) { const t = S.text[fd.field_name]; if (t && !(f.vals[fd.field_name] || '').toLowerCase().includes(t)) return false; }
+    return true;
+  }
+  function update(initialFit) {
+    S.visible = S.features.filter(f => matches(f, null));
+    // faceted counts: each group counts features matching all *other* filters
+    for (const fd of S.filterFields) {
+      const counts = new Map();
+      for (const f of S.features) if (matches(f, fd)) for (const v of featureValues(f, fd)) counts.set(v, (counts.get(v) || 0) + 1);
+      const g = S.ui.groups.get(fd.field_name), sel = S.sel[fd.field_name];
+      for (const [v, r] of g.rows) {
+        const c = counts.get(v) || 0; r.n.textContent = c;
+        r.row.classList.toggle('zero', c === 0);
+      }
+      const off = g.all.length - sel.size;
+      g.badge.hidden = !off; g.badge.textContent = off + ' hidden';
+    }
+    group.clearLayers();
+    for (const f of S.visible) group.addLayer(f.marker);
+    $('#count').textContent = `${S.visible.length} of ${S.features.length} features shown`;
+    renderLegend(); renderList();
+    if (S.selectedId && !S.visible.some(f => f.id === S.selectedId)) { /* keep panel open, marker hidden */ }
+    updateLabelVisibility();
+    if (initialFit) fit();
+  }
+  function fit() {
+    const pts = (S.visible.length ? S.visible : S.features).map(f => [f.lat, f.lon]);
+    if (pts.length) map.fitBounds(L.latLngBounds(pts), { padding: [40, 40], maxZoom: 18 });
+  }
+  function renderLegend() {
+    const box = $('#legend'); box.replaceChildren();
+    if (!S.colorField) return;
+    const counts = new Map(); let none = 0;
+    for (const f of S.visible) { const v = f.vals[S.colorField]; if (v) counts.set(v, (counts.get(v) || 0) + 1); else none++; }
+    for (const [v, c] of S.colorMap) if (counts.has(v)) box.append(el('span', { class: 'item' }, el('i', { class: 'dot', style: 'background:' + c }), `${v} (${counts.get(v)})`));
+    if (none) box.append(el('span', { class: 'item' }, el('i', { class: 'dot', style: 'background:' + NO_VALUE_COLOR }), `(empty) (${none})`));
+  }
+  function renderList() {
+    const box = $('#list'); box.replaceChildren();
+    const sorted = [...S.visible].sort((a, b) => titleOf(a).localeCompare(titleOf(b), undefined, { numeric: true }));
+    for (const f of sorted) {
+      const sub = [f.vals.azonosito && f.vals.fid ? f.vals.azonosito : '', f.vals.gyari_szam].filter(Boolean).join(' · ');
+      const li = el('div', { class: 'li' + (f.id === S.selectedId ? ' sel' : ''), 'data-id': f.id },
+        el('i', { class: 'dot', style: 'background:' + colorOf(f) }), el('span', { text: titleOf(f) }), el('span', { class: 'sub', text: sub }));
+      li.onclick = () => select(f.id, true);
+      box.append(li);
+    }
+  }
+
+  /* ---------------- detail panel ---------------- */
+  function select(id, pan) {
+    const prev = S.byId.get(S.selectedId); S.selectedId = id;
+    if (prev) prev.marker.setStyle(styleOf(prev));
+    const f = S.byId.get(id); if (!f) return;
+    f.marker.setStyle(styleOf(f)); f.marker.bringToFront && f.marker.bringToFront();
+    if (pan) map.setView([f.lat, f.lon], Math.max(map.getZoom(), 17));
+    for (const li of document.querySelectorAll('#list .li')) li.classList.toggle('sel', li.dataset.id === id);
+    showDetail(f);
+  }
+  function showDetail(f) {
+    const d = $('#detail'); d.hidden = false;
+    const kv = el('dl', { class: 'kv' });
+    for (const fd of S.fields) {
+      if (fd.data_type === 'PHOTO') continue;
+      const v = f.vals[fd.field_name]; if (!v) continue;
+      kv.append(el('dt', { text: fd.field_name }),
+        el('dd', {}, fd.data_type === 'CHECKLIST' ? splitList(v).map(x => el('span', { class: 'chip', text: x })) : v));
+    }
+    if (!kv.children.length) kv.append(el('dt', { text: '—' }), el('dd', { text: 'No attribute values' }));
+    const meta = el('div', { class: 'meta' });
+    meta.append(el('div', { text: `${f.lat.toFixed(7)}, ${f.lon.toFixed(7)}` }));
+    if (f.time) meta.append(el('div', { text: 'Collected ' + fmtTime(f.time) }));
+    if (f.elv != null) meta.append(el('div', { text: `Elevation ${(+f.elv).toFixed(1)} m` }));
+    if (f.accH != null) meta.append(el('div', { text: `Accuracy ±${(+f.accH).toFixed(1)} m horiz` + (f.accV != null ? `, ±${(+f.accV).toFixed(1)} m vert` : '') }));
+    const photos = el('div', { class: 'photos' });
+    f.photos.forEach((ph, i) => {
+      const box = el('div', { class: 'ph', text: ph.missing ? 'missing:\n' + ph.file : '…' });
+      const fig = el('figure', { onclick: () => openLightbox(f, i) }, box, el('figcaption', { text: ph.field, title: ph.file }));
+      photos.append(fig);
+      if (!ph.missing) photoUrl(ph.file).then(u => {
+        if (!u) { box.textContent = 'unreadable'; return; }
+        box.textContent = ''; box.append(el('img', { src: u, alt: ph.field, loading: 'lazy' }));
+      });
+    });
+    d.replaceChildren(
+      el('header', {}, el('h2', {}, titleOf(f), el('small', { text: S.layer.name })),
+        S.edit ? el('button', { class: 'sm', onclick: () => editForm(f), text: 'Edit' }) : null,
+        S.edit ? el('button', { class: 'sm danger', onclick: () => deleteFeature(f), text: 'Delete' }) : null,
+        el('button', { class: 'x', title: 'Close', onclick: closeDetail, text: '×' })),
+      el('div', { class: 'body' }, kv, S.edit ? unsetBlock(f) : null, f.photos.length ? photos : null, meta));
+  }
+  function closeDetail() {
+    $('#detail').hidden = true;
+    const prev = S.byId.get(S.selectedId); S.selectedId = null;
+    if (prev) prev.marker.setStyle(styleOf(prev));
+    for (const li of document.querySelectorAll('#list .li.sel')) li.classList.remove('sel');
+  }
+  async function photoUrl(file) {
+    const key = file.toLowerCase();
+    if (S.photoUrls.has(key)) return S.photoUrls.get(key);
+    const e = S.activePhotos.get(key); if (!e) return null;
+    try { const u = URL.createObjectURL(await e.getFile()); S.photoUrls.set(key, u); return u; } catch (err) { return null; }
+  }
+
+  /* ---------------- lightbox ---------------- */
+  const LB = { f: null, i: 0 };
+  async function openLightbox(f, i) {
+    LB.f = f; LB.i = i; await renderLightbox(); $('#lightbox').hidden = false;
+  }
+  async function renderLightbox() {
+    const ph = LB.f.photos[LB.i], u = ph.missing ? null : await photoUrl(ph.file);
+    const img = $('#lightbox img'); if (u) img.src = u; else img.removeAttribute('src');
+    $('#lightbox .cap').textContent = `${titleOf(LB.f)} · ${ph.field} · ${ph.file}${u ? '' : ' (file not found)'}  (${LB.i + 1}/${LB.f.photos.length})`;
+    const many = LB.f.photos.length > 1; $('#lightbox .prev').hidden = $('#lightbox .next').hidden = !many;
+  }
+  const lbStep = d => { const n = LB.f.photos.length; LB.i = (LB.i + d + n) % n; renderLightbox(); };
+  $('#lightbox .prev').onclick = e => { e.stopPropagation(); lbStep(-1); };
+  $('#lightbox .next').onclick = e => { e.stopPropagation(); lbStep(1); };
+  $('#lightbox .close').onclick = () => { $('#lightbox').hidden = true; };
+  $('#lightbox').onclick = e => { if (e.target.id === 'lightbox') $('#lightbox').hidden = true; };
+  document.addEventListener('keydown', e => {
+    if (!$('#lightbox').hidden) {
+      if (e.key === 'Escape') $('#lightbox').hidden = true;
+      else if (e.key === 'ArrowLeft') lbStep(-1); else if (e.key === 'ArrowRight') lbStep(1);
+    } else if (e.key === 'Escape' && !$('#detail').hidden && !/INPUT|SELECT/.test(document.activeElement.tagName)) closeDetail();
+  });
+
+  /* ---------------- editor ---------------- */
+  const csvEsc = v => { v = v == null ? '' : String(v); return /[;"\n\r]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
+  const stemOf = name => name.replace(/\.swm2$/i, '');
+  const LOG_COLS = ['timestamp', 'action', 'feature_uuid', 'fid', 'azonosito', 'gyari_szam', 'field', 'old_value', 'new_value', 'detail'];
+  const logEntry = (action, f, extra) => Object.assign({
+    timestamp: fmtTime(Date.now()), action, feature_uuid: f ? f.id : '',
+    fid: f ? f.vals.fid || '' : '', azonosito: f ? f.vals.azonosito || '' : '', gyari_szam: f ? f.vals.gyari_szam || '' : ''
+  }, extra);
+  async function writeFile(fileHandle, data) {
+    const w = await fileHandle.createWritable();
+    try { await w.write(data); await w.close(); } catch (e) { try { await w.abort(); } catch (e2) { /* ignore */ } throw e; }
+  }
+  async function appendLog(dir, name, entries) {
+    const fh = await dir.getFileHandle(stemOf(name) + '.changelog.csv', { create: true });
+    let text = ''; try { text = await (await fh.getFile()).text(); } catch (e) { /* new file */ }
+    if (!text) text = LOG_COLS.join(';') + '\r\n';
+    else if (!text.endsWith('\n')) text += '\r\n';
+    text += entries.map(e => LOG_COLS.map(c => csvEsc(e[c])).join(';')).join('\r\n') + '\r\n';
+    await writeFile(fh, '﻿' + text);
+  }
+  function updateEditBar() {
+    const E = S.edit, proj = S.projects[S.projIndex], mk = $('#btnMakeCopy');
+    $('#editbar').hidden = !E;
+    if (E) {
+      mk.hidden = true; $('#editName').textContent = projLabel(proj);
+      $('#editState').textContent = E.dirty ? '● unsaved changes' : 'all changes saved';
+      $('#editState').classList.toggle('dirty', E.dirty);
+      $('#btnSave').disabled = !E.dirty; $('#btnUndo').disabled = !E.undo.length;
+    } else {
+      mk.hidden = !proj || proj.kind === 'edited';
+      const can = !!(S.root || S.outRoot || window.showDirectoryPicker); mk.disabled = !can;
+      mk.title = can ? 'Copies the project to Edited/ and opens the copy for editing' : 'Editing needs Chrome or Edge (folder access)';
+    }
+  }
+  const markDirty = () => { if (!S.edit) return; S.edit.dirty = true; S.edit.ops++; updateEditBar(); };
+
+  async function createEditableCopy() {
+    const src = S.projects[S.projIndex];
+    if (!src || src.kind === 'edited') return;
+    let root = S.root || S.outRoot;
+    try {
+      if (!root) {
+        if (!window.showDirectoryPicker) { toast('Editing needs Chrome or Edge (folder access).', 9000); return; }
+        toast('Choose the input folder in which the Edited/ folder should be created.', 6000);
+        root = S.outRoot = await window.showDirectoryPicker({ mode: 'readwrite' });
+      }
+      if (root.requestPermission && await root.requestPermission({ mode: 'readwrite' }) !== 'granted') { toast('Write permission was not granted.', 7000); return; }
+      const dir = await root.getDirectoryHandle('Edited', { create: true });
+      let name = src.name, exists = false;
+      try { await dir.getFileHandle(name); exists = true; } catch (e) { /* not there */ }
+      if (exists) {
+        if (confirm('Edited/' + name + ' already exists.\n\nOK = continue editing that existing copy.\nCancel = make a new copy with a timestamp in its name.')) {
+          let k = S.projects.findIndex(p => p.kind === 'edited' && p.name === name);
+          if (k < 0) { S.projects.push({ name, kind: 'edited', editable: true, photos: src.photos, handle: await dir.getFileHandle(name), dir, read: async () => new Uint8Array(await (await (await dir.getFileHandle(name)).getFile()).arrayBuffer()) }); S.projects.sort(projectOrder); k = S.projects.findIndex(p => p.kind === 'edited' && p.name === name); }
+          if (src.photos) S.projects[k].photos = src.photos;
+          rebuildProjectSelect(); await loadProject(k); return;
+        }
+        const t = new Date(); const ts = `${t.getFullYear()}${pad(t.getMonth() + 1)}${pad(t.getDate())}_${pad(t.getHours())}${pad(t.getMinutes())}${pad(t.getSeconds())}`;
+        name = stemOf(src.name) + '_' + ts + '.swm2';
+      }
+      const fh = await dir.getFileHandle(name, { create: true });
+      await writeFile(fh, await src.read());
+      await appendLog(dir, name, [logEntry('COPY_CREATED', null, { detail: 'from ' + (src.kind === 'swmz' ? src.zipName + ' > ' + src.name : 'Projects/' + src.name) })]);
+      S.projects.push({ name, kind: 'edited', editable: true, photos: src.photos, handle: fh, dir, read: async () => new Uint8Array(await (await fh.getFile()).arrayBuffer()) });
+      S.projects.sort(projectOrder); rebuildProjectSelect();
+      await loadProject(S.projects.findIndex(p => p.kind === 'edited' && p.name === name));
+      toast('Editing copy Edited/' + name + '. The original is untouched.', 7000);
+    } catch (e) { if (e.name === 'AbortError') return; console.error(e); toast('Could not create the copy: ' + e.message, 9000); }
+  }
+  $('#btnMakeCopy').onclick = createEditableCopy;
+
+  async function saveEdits() {
+    const E = S.edit; if (!E || !E.dirty) return;
+    try {
+      await writeFile(E.proj.handle, await E.db.export());
+    } catch (e) { console.error(e); toast('SAVE FAILED: ' + e.message, 12000); return; }
+    E.log.push(logEntry('SAVE', null, { detail: E.ops + ' change step(s) written to ' + E.proj.name }));
+    try { await appendLog(E.proj.dir, E.proj.name, E.log); E.log = []; toast('Saved.', 3000); }
+    catch (e) { console.error(e); toast('Saved, but writing the change log failed: ' + e.message, 12000); }
+    E.dirty = false; E.ops = 0; updateEditBar();
+  }
+  $('#btnSave').onclick = saveEdits;
+  $('#btnUndo').onclick = async () => {
+    const E = S.edit, u = E && E.undo.pop(); if (!u) return;
+    try { await u.run(); markDirty(); update(); toast('Undone: ' + u.label, 3000); }
+    catch (e) { console.error(e); toast('Undo failed: ' + e.message, 9000); }
+    updateEditBar();
+  };
+
+  function refreshFeature(f) {
+    f._hay = S.fields.filter(fd => fd.data_type !== 'PHOTO').map(fd => f.vals[fd.field_name]).join(' \n ').toLowerCase();
+    f.marker.setStyle(styleOf(f)); bindLabel(f);
+  }
+  const sameSet = (a, b) => a.length === b.length && a.every(x => b.includes(x));
+
+  function makeControl(fd, cur) {                // control limited to the choices stored in the swm2
+    const choices = splitList(fd.field_choices); let ctl, get;
+    if (fd.data_type === 'OPTIONS') {
+      const opts = ['', ...choices]; if (cur && !choices.includes(cur)) opts.push(cur);
+      ctl = el('select', {}, opts.map(v => el('option', { value: v, text: v === '' ? '(empty)' : choices.includes(v) ? v : v + '  (not in list)' })));
+      ctl.value = cur; get = () => ctl.value;
+    } else if (fd.data_type === 'CHECKLIST') {
+      const curs = splitList(cur), boxes = [...choices, ...curs.filter(v => !choices.includes(v))].map(v => {
+        const cb = el('input', { type: 'checkbox' }); cb.checked = curs.includes(v);
+        return { v, cb, row: el('label', { class: 'opt' }, cb, el('span', { class: 't', text: choices.includes(v) ? v : v + '  (not in list)' })) };
+      });
+      ctl = el('div', { class: 'cl' }, boxes.map(b => b.row)); get = () => boxes.filter(b => b.cb.checked).map(b => b.v).join('||');
+    } else {
+      const long = cur.length > 40 || cur.includes('\n');
+      ctl = long ? el('textarea', { rows: 3 }) : el('input', { type: 'text', autocomplete: 'off' });
+      ctl.value = cur; get = () => ctl.value;
+    }
+    return { ctl, get };
+  }
+  function unsetBlock(f) {
+    const unset = S.fields.filter(fd => fd.data_type !== 'PHOTO' && !f.vals[fd.field_name]);
+    if (!unset.length) return el('div', { class: 'addattr' }, el('small', { style: 'color:var(--muted)', text: 'Every attribute has a value.' }));
+    const sel = el('select', {}, el('option', { value: '', text: 'Choose an attribute…' }), unset.map(fd => el('option', { value: fd.uuid, text: fd.field_name })));
+    const host = el('div'); let cur = null;
+    const addBtn = el('button', { class: 'primary sm', text: 'Set value', onclick: async () => {
+      if (!cur) return; const v = cur.get();
+      if (!v.trim()) { toast('Choose or enter a value first.', 3000); return; }
+      await applyEdit(f, [{ fd: cur.fd, cur: '', value: v }]);
+    } });
+    addBtn.disabled = true;
+    sel.onchange = () => {
+      host.replaceChildren(); cur = null; addBtn.disabled = true;
+      const fd = unset.find(x => x.uuid === sel.value); if (!fd) return;
+      const c = makeControl(fd, ''); cur = { fd, get: c.get }; host.append(c.ctl); addBtn.disabled = false;
+    };
+    return el('div', { class: 'addattr' }, el('label', { class: 'fl', text: `Not set yet (${unset.length}) – stored choices only` }), sel, host,
+      el('div', { style: 'display:flex;justify-content:flex-end;margin-top:6px' }, addBtn));
+  }
+
+  function editForm(f) {
+    const d = $('#detail'), form = el('div', { class: 'body form' }), items = [];
+    for (const fd of S.fields) {
+      if (fd.data_type === 'PHOTO') continue;
+      const cur = f.vals[fd.field_name] || '', { ctl, get } = makeControl(fd, cur);
+      form.append(el('label', { class: 'fl', text: fd.field_name + (cur ? '' : '  (not set)') }), ctl); items.push({ fd, get, cur });
+    }
+    form.append(el('div', { class: 'formbtns' },
+      el('button', { text: 'Cancel', onclick: () => showDetail(f) }),
+      el('button', { class: 'primary', text: 'Apply', onclick: async () => {
+        const changes = [];
+        for (const it of items) {
+          const nv = it.get(), same = it.fd.data_type === 'CHECKLIST' ? sameSet(splitList(nv), splitList(it.cur)) : nv === it.cur;
+          if (!same) changes.push({ fd: it.fd, cur: it.cur, value: nv });
+        }
+        if (!changes.length) { showDetail(f); return; }
+        await applyEdit(f, changes);
+      } })));
+    d.replaceChildren(el('header', {}, el('h2', {}, 'Edit ' + titleOf(f), el('small', { text: 'Only the stored choices are offered for lists. Press Save in the sidebar to write the copy.' }))), form);
+  }
+
+  async function setValues(f, list) {            // list: [{fd, value, existed}] -> writes via SQL, updates model
+    const db = S.edit.db;
+    for (const c of list) {
+      if (c.value === null) { await db.run('DELETE FROM attribute_values WHERE item_id=? AND field_id=?', [f.id, c.fd.uuid]); continue; }
+      const n = await db.run('UPDATE attribute_values SET value=? WHERE item_id=? AND field_id=?', [c.value, f.id, c.fd.uuid]);
+      if (!n) await db.run('INSERT INTO attribute_values (item_id, field_id, data_type, value) VALUES (?,?,?,?)', [f.id, c.fd.uuid, c.fd.data_type, c.value]);
+    }
+  }
+  async function inTransaction(fn) {
+    const db = S.edit.db; await db.run('BEGIN');
+    try { await fn(); await db.run('COMMIT'); } catch (e) { try { await db.run('ROLLBACK'); } catch (e2) { /* ignore */ } throw e; }
+  }
+  async function applyEdit(f, changes) {
+    const E = S.edit;
+    const existed = [];
+    try {
+      for (const c of changes) existed.push((await E.db.all('SELECT 1 AS x FROM attribute_values WHERE item_id=? AND field_id=?', [f.id, c.fd.uuid])).length > 0);
+      await inTransaction(() => setValues(f, changes));
+    } catch (e) { console.error(e); toast('Edit failed, nothing changed: ' + e.message, 9000); return; }
+    if (S.edit !== E) return;                      // project was switched while writing
+    for (const c of changes) f.vals[c.fd.field_name] = c.value;
+    refreshFeature(f);
+    for (const c of changes) E.log.push(logEntry('EDIT', f, { field: c.fd.field_name, old_value: c.cur, new_value: c.value }));
+    E.undo.push({ label: 'edit of ' + titleOf(f), run: async () => {
+      await inTransaction(() => setValues(f, changes.map((c, k) => ({ fd: c.fd, value: existed[k] ? c.cur : null }))));
+      for (const c of changes) f.vals[c.fd.field_name] = c.cur;
+      refreshFeature(f);
+      for (const c of changes) E.log.push(logEntry('UNDO_EDIT', f, { field: c.fd.field_name, old_value: c.value, new_value: c.cur }));
+      if (S.byId.get(f.id) === f && S.selectedId === f.id) showDetail(f);
+    } });
+    markDirty(); update(); showDetail(f);
+  }
+
+  const baseName = p => (p || '').split(/[\\/]/).pop().toLowerCase();
+  async function deleteFeature(f) {
+    const E = S.edit, db = E.db;
+    try {
+      const feat = await db.all('SELECT * FROM features WHERE uuid=?', [f.id]);
+      const pts = await db.all('SELECT * FROM points WHERE fid=?', [f.id]);
+      const vals = await db.all('SELECT * FROM attribute_values WHERE item_id=?', [f.id]);
+      const files = f.photos.map(p => p.file.toLowerCase());
+      const photoRows = (await db.all('SELECT * FROM photos')).filter(r => files.includes(baseName(r.photo_path)));
+      const ptIds = pts.map(p => p.uuid);
+      const snaps = ptIds.length ? await db.all(`SELECT uuid, snap_id FROM points WHERE snap_id IN (${ptIds.map(() => '?').join(',')}) AND fid<>?`, [...ptIds, f.id]) : [];
+      if (S.edit !== E) return;
+      if (feat.length !== 1) { toast('Feature not found in the database copy.', 7000); return; }
+      if (!confirm(`Delete “${titleOf(f)}” from the edited copy?\n\nRemoves: 1 feature, ${pts.length} point(s), ${vals.length} attribute value(s)` +
+        (photoRows.length ? `, ${photoRows.length} photo record(s)` : '') + (snaps.length ? `; ${snaps.length} snap link(s) cleared` : '') +
+        `.\nThe ${f.photos.length} photo file(s) are NOT deleted.\n\nNothing is written to disk until you press Save, and you can Undo.`)) return;
+      await inTransaction(async () => {
+        if (snaps.length) await db.run(`UPDATE points SET snap_id=NULL WHERE snap_id IN (${ptIds.map(() => '?').join(',')}) AND fid<>?`, [...ptIds, f.id]);
+        await db.run('DELETE FROM attribute_values WHERE item_id=?', [f.id]);
+        await db.run('DELETE FROM points WHERE fid=?', [f.id]);
+        for (const r of photoRows) await db.run('DELETE FROM photos WHERE uuid=?', [r.uuid]);
+        if (await db.run('DELETE FROM features WHERE uuid=?', [f.id]) !== 1) throw new Error('feature row was not deleted');
+      });
+      if (S.edit !== E) return;
+      const desc = S.fields.filter(fd => fd.data_type !== 'PHOTO' && f.vals[fd.field_name]).map(fd => fd.field_name + '=' + f.vals[fd.field_name]).join('; ');
+      E.log.push(logEntry('DELETE', f, { old_value: desc, detail: `removed 1 feature, ${pts.length} point(s) at ${f.lat},${f.lon}, ${vals.length} value(s); photo files kept: ${f.photos.map(p => p.file).join(' | ') || '-'}` }));
+      const insertRows = async (table, rows) => {
+        for (const r of rows) {
+          const cols = Object.keys(r);
+          await db.run(`INSERT INTO ${table} (${cols.map(c => '"' + c + '"').join(',')}) VALUES (${cols.map(() => '?').join(',')})`, cols.map(c => r[c]));
+        }
+      };
+      E.undo.push({ label: 'delete of ' + titleOf(f), run: async () => {
+        await inTransaction(async () => {
+          await insertRows('features', feat); await insertRows('points', pts); await insertRows('attribute_values', vals); await insertRows('photos', photoRows);
+          for (const s2 of snaps) await db.run('UPDATE points SET snap_id=? WHERE uuid=?', [s2.snap_id, s2.uuid]);
+        });
+        S.features.push(f); S.byId.set(f.id, f);
+        E.log.push(logEntry('UNDO_DELETE', f, { detail: 'feature restored' }));
+      } });
+      S.features = S.features.filter(x => x !== f); S.byId.delete(f.id);
+      closeDetail(); markDirty(); update(); toast('Deleted in the copy. Press Save to write it to disk.', 5000);
+    } catch (e) { console.error(e); toast('Delete failed, nothing changed: ' + e.message, 9000); }
+  }
+
+  /* ---------------- export ---------------- */
+  const download = (name, mime, text, bom) => {
+    const a = el('a', { href: URL.createObjectURL(new Blob([bom ? '﻿' + text : text], { type: mime })), download: name });
+    document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  };
+  const stem = () => (S.layer ? S.layer.name : 'export').replace(/[^\w.-]+/g, '_') + '_' + new Date().toISOString().slice(0, 10);
+  $('#btnGeo').onclick = () => {
+    const fc = {
+      type: 'FeatureCollection',
+      features: S.visible.map(f => {
+        const props = {};
+        for (const fd of S.fields) if (fd.data_type !== 'PHOTO') props[fd.field_name] = fd.data_type === 'CHECKLIST' ? splitList(f.vals[fd.field_name]) : f.vals[fd.field_name];
+        props.photos = f.photos.map(p => ({ field: p.field, file: p.file }));
+        props.time_local = fmtTime(f.time); props.accuracy_h = f.accH; props.accuracy_v = f.accV;
+        return { type: 'Feature', id: f.id, geometry: { type: 'Point', coordinates: f.elv != null ? [f.lon, f.lat, f.elv] : [f.lon, f.lat] }, properties: props };
+      })
+    };
+    download(stem() + '.geojson', 'application/geo+json', JSON.stringify(fc, null, 1));
+  };
+  $('#btnCsv').onclick = () => {
+    const cols = S.fields.filter(fd => fd.data_type !== 'PHOTO').map(fd => fd.field_name);
+    const photoCols = S.photoFields.map(fd => fd.field_name);
+    const esc = csvEsc;
+    const lines = [['lat', 'lon', 'elv', 'time_local', 'accuracy_h', ...cols, ...photoCols].map(esc).join(';')];
+    for (const f of S.visible) lines.push([f.lat, f.lon, f.elv, fmtTime(f.time), f.accH, ...cols.map(c => f.vals[c]),
+      ...photoCols.map(c => f.photos.filter(p => p.field === c).map(p => p.file).join(' | '))].map(esc).join(';'));
+    download(stem() + '.csv', 'text/csv;charset=utf-8', lines.join('\r\n'), true);
+  };
+
+  window.__swviewer = { S, map };   // handy for debugging in the console
+})();
+</script>
+</body>
+</html>
